@@ -1,4 +1,6 @@
-﻿using Cosmos.System.FileSystem;
+﻿using Cosmos.Core;
+using Cosmos.Core.Memory;
+using Cosmos.System.FileSystem;
 using Cosmos.System.FileSystem.VFS;
 using CosmosTest.App;
 using System;
@@ -10,7 +12,7 @@ namespace CosmosTest
     public class Kernel : Sys.Kernel
     {
         private Application application;
-        private CosmosVFS fs;
+        private StorageManager storage;
         protected override void OnBoot()
         {
             base.OnBoot();
@@ -19,34 +21,36 @@ namespace CosmosTest
         }
         protected override void BeforeRun()
         {
-            if (!Network.Initialize())
-            {
-                Console.WriteLine("Press any key to restart");
-                Console.ReadKey();
-                Cosmos.System.Power.Reboot();
-            }
-            this.fs = new CosmosVFS();
-            VFSManager.RegisterVFS(this.fs,true,true);
             try
             {
-                this.application = new Application(this.fs);
-                Console.WriteLine("Application started");
+                GCImplementation.Init();
+                if (!Network.Initialize())
+                {
+                    ConsoleManager.RequestRestart();
+                }
+                this.storage = new StorageManager();
+                this.application = new Application(this.storage);
+                ConsoleManager.Log("Application started");
             }
             catch (Exception ex)
             {
                 Console.WriteLine("!!! HIBA AZ ALKALMAZAS LETREHOZASAKOR !!!");
-                Console.WriteLine(ex.ToString());
-                Console.WriteLine("Press any key to restart");
-                Console.ReadKey();
-                Sys.Power.Reboot();
+                ConsoleManager.Error(ex);
+                ConsoleManager.RequestRestart();
             }
         }
         protected override void Run()
         {
             while (true)
             {
-                this.application.Run();
-                Console.WriteLine("niga");
+                try
+                {
+                    this.application.Run();
+                }
+                catch (Exception ex)
+                {
+                    ConsoleManager.Error(ex);
+                }
             }
         }
     }

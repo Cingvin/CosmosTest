@@ -313,7 +313,7 @@ namespace CosmosTest.App.FtpServer
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                ConsoleManager.Error(ex);
                 ftpClient.SendReply(425, "Can't open data connection.");
             }
         }
@@ -425,7 +425,7 @@ namespace CosmosTest.App.FtpServer
             }
             catch(Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                ConsoleManager.Error(ex);
                 ftpClient.SendReply(550, "Requested action not taken.");
             }
         }

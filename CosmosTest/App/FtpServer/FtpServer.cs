@@ -107,7 +107,7 @@ namespace CosmosTest.App.FtpServer
                 }
                 catch(Exception ex)
                 {
-                    Log(ex.Message);
+                    ConsoleManager.Error(ex);
                 }
                 finally
                 {
@@ -158,7 +158,7 @@ namespace CosmosTest.App.FtpServer
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Exception: " + ex.Message);
+                ConsoleManager.Error(ex);
             }
         }
 
@@ -170,8 +170,7 @@ namespace CosmosTest.App.FtpServer
         {
             if (Debug)
             {
-                Console.WriteLine(str);
-                Cosmos.System.Global.Debugger.Send(str);
+                ConsoleManager.Log(str);
             }
         }
 

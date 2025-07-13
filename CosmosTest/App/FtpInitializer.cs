@@ -1,17 +1,18 @@
 ﻿using Cosmos.System.FileSystem;
 using System;
+using System.Linq;
 namespace CosmosTest.App
 {
     internal class FtpInitializer
     {
         private CosmosTest.App.FtpServer.FtpServer _server;
 
-        internal FtpInitializer(CosmosVFS fs)
+        internal FtpInitializer(StorageManager sm)
         {
 #if DEBUG
-            _server = new CosmosTest.App.FtpServer.FtpServer(fs, "0:\\",true);
+            _server = new CosmosTest.App.FtpServer.FtpServer(sm.fs,sm.partitions.First().RootPath,true);
 #else
-            _server = new CosmosTest.App.FtpServer.FtpServer(fs, "0:\\");
+             _server = new CosmosTest.App.FtpServer.FtpServer(sm.fs,sm.partitions.First().RootPath);
 #endif
         }
 

@@ -5,12 +5,12 @@ namespace CosmosTest.App
     internal class Application
     {
         private FtpInitializer ftp;
-        private CosmosVFS fs = null!;
+        private StorageManager sm = null!;
 
-        internal Application(CosmosVFS fs)
+        internal Application(StorageManager sm)
         {
-            this.fs = fs;
-            this.ftp = new FtpInitializer(fs);
+            this.sm = sm;
+            this.ftp = new FtpInitializer(sm);
         }
         internal void Run()
         {
