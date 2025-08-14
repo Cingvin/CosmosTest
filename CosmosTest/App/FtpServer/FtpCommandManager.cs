@@ -32,7 +32,7 @@ namespace CosmosTest.App.FtpServer
         /// Create new instance of the <see cref="FtpCommandManager"/> class.
         /// </summary>
         /// <param name="fs">Cosmos Virtual Filesystem.</param>
-        /// <param name="directory">Base directory used by the FTP server.</param>
+        /// <param name="directory">Base directory used by the FTP ftpServer.</param>
         internal FtpCommandManager(CosmosVFS fs, string directory)
         {
             FileSystem = fs;
@@ -47,73 +47,81 @@ namespace CosmosTest.App.FtpServer
         /// <param name="command">FTP Command.</param>
         internal void ProcessRequest(FtpClient ftpClient, FtpCommand command)
         {
-            if (command.Command == "USER")
+            try
             {
-                ProcessUser(ftpClient, command);
-            }
-            else if (command.Command == "PASS")
-            {
-                ProcessPass(ftpClient, command);
-            }
-            else
-            {
-                if (ftpClient.IsConnected())
+                if (command.Command == "USER")
                 {
-                    switch (command.Command)
+                    ProcessUser(ftpClient, command);
+                }
+                else if (command.Command == "PASS")
+                {
+                    ProcessPass(ftpClient, command);
+                }
+                else
+                {
+                    if (ftpClient.IsConnected())
                     {
-                        case "CWD":
-                            ProcessCwd(ftpClient, command);
-                            break;
-                        case "SYST":
-                            ftpClient.SendReply(215, "CosmosOS");
-                            break;
-                        case "CDUP":
-                            ProcessCdup(ftpClient, command);
-                            break;
-                        case "QUIT":
-                            ProcessQuit(ftpClient, command);
-                            break;
-                        case "DELE":
-                            ProcessDele(ftpClient, command);
-                            break;
-                        case "PWD":
-                            ProcessPwd(ftpClient, command);
-                            break;
-                        case "PASV":
-                            ProcessPasv(ftpClient, command);
-                            break;
-                        case "PORT":
-                            ProcessPort(ftpClient, command);
-                            break;
-                        case "HELP":
-                            ftpClient.SendReply(200, "Help done.");
-                            break;
-                        case "NOOP":
-                            ftpClient.SendReply(200, "Command okay.");
-                            break;
-                        case "RETR":
-                            ProcessRetr(ftpClient, command);
-                            break;
-                        case "STOR":
-                            ProcessStor(ftpClient, command);
-                            break;
-                        case "RMD":
-                            ProcessRmd(ftpClient, command);
-                            break;
-                        case "MKD":
-                            ProcessMkd(ftpClient, command);
-                            break;
-                        case "LIST":
-                            ProcessList(ftpClient, command);
-                            break;
-                        case "TYPE":
-                            ftpClient.SendReply(200, "Command okay.");
-                            break;
-                        default:
-                            ftpClient.SendReply(500, "Unknown command.");
-                            break;
+                        switch (command.Command)
+                        {
+                            case "CWD":
+                                ProcessCwd(ftpClient, command);
+                                break;
+                            case "SYST":
+                                ftpClient.SendReply(215, "CosmosOS");
+                                break;
+                            case "CDUP":
+                                ProcessCdup(ftpClient, command);
+                                break;
+                            case "QUIT":
+                                ProcessQuit(ftpClient, command);
+                                break;
+                            case "DELE":
+                                ProcessDele(ftpClient, command);
+                                break;
+                            case "PWD":
+                                ProcessPwd(ftpClient, command);
+                                break;
+                            case "PASV":
+                                ProcessPasv(ftpClient, command);
+                                break;
+                            case "PORT":
+                                ProcessPort(ftpClient, command);
+                                break;
+                            case "HELP":
+                                ftpClient.SendReply(200, "Help done.");
+                                break;
+                            case "NOOP":
+                                ftpClient.SendReply(200, "Command okay.");
+                                break;
+                            case "RETR":
+                                ProcessRetr(ftpClient, command);
+                                break;
+                            case "STOR":
+                                ProcessStor(ftpClient, command);
+                                break;
+                            case "RMD":
+                                ProcessRmd(ftpClient, command);
+                                break;
+                            case "MKD":
+                                ProcessMkd(ftpClient, command);
+                                break;
+                            case "LIST":
+                                ProcessList(ftpClient, command);
+                                break;
+                            case "TYPE":
+                                ftpClient.SendReply(200, "Command okay.");
+                                break;
+                            default:
+                                ftpClient.SendReply(500, "Unknown command.");
+                                break;
+                        }
                     }
                 }
+            }
+            catch (Exception e)
+            {
+                ftpClient.SendReply(550, "Requested action not taken.");
+                Container.console.Error(e);
             }
         }
 
@@ -291,8 +299,6 @@ namespace CosmosTest.App.FtpServer
         /// <param name="command">FTP Command.</param>
         internal void ProcessList(FtpClient ftpClient, FtpCommand command)
         {
-            try
-            {
                 switch (ftpClient.Mode)
                 {
                     case TransferMode.ACTV:
@@ -310,12 +316,6 @@ namespace CosmosTest.App.FtpServer
                         ftpClient.SendReply(425, "Can't open data connection.");
                         break;
                 }
-            }
-            catch (Exception ex)
-            {
-                ConsoleManager.Error(ex);
-                ftpClient.SendReply(425, "Can't open data connection.");
-            }
         }
         /// <summary>
         /// Make a file/directory listing and send it to FTP data connection.
@@ -370,8 +370,9 @@ namespace CosmosTest.App.FtpServer
                     ftpClient.SendReply(550, "Requested action not taken.");
                 }
             }
-            catch
+            catch(Exception ex)
             {
+                Container.console.Error(ex);
                 ftpClient.SendReply(550, "Requested action not taken.");
             }
         }
@@ -425,7 +426,7 @@ namespace CosmosTest.App.FtpServer
             }
             catch(Exception ex)
             {
-                ConsoleManager.Error(ex);
+                Container.console.Error(ex);
                 ftpClient.SendReply(550, "Requested action not taken.");
             }
         }

@@ -61,7 +61,7 @@ namespace CosmosTest.App.FtpServer
         internal TcpListener tcpListener;
 
         /// <summary>
-        /// Is FTP server listening for new FTP clients.
+        /// Is FTP ftpServer listening for new FTP clients.
         /// </summary>
         internal bool Listening;
 
@@ -75,29 +75,26 @@ namespace CosmosTest.App.FtpServer
         /// </summary>
         /// <exception cref="Exception">Thrown if directory does not exists.</exception>
         /// <param name="fs">Initialized Cosmos Virtual Filesystem.</param>
-        /// <param name="directory">FTP Server root directory path.</param>
+        /// <param name="partitions">FTP Server partitions</param>
         /// <param name="debug">Is debug logging enabled.</param>
-        public FtpServer(CosmosVFS fs, string directory, bool debug = false)
+        public FtpServer(CosmosVFS fs, string root , bool debug = false)
         {
-            if (Directory.Exists(directory) == false)
-            {
-                throw new Exception("FTP server can't open specified directory.");
-            }
             IPAddress address = IPAddress.Any;
             tcpListener = new TcpListener(address, 21);
-            CommandManager = new FtpCommandManager(fs, directory);
+            CommandManager = new FtpCommandManager(fs, root);
             Debug = debug;
         }
 
         /// <summary>
         /// Listen for new FTP clients.
         /// </summary>
-        public void Listen()
+        internal void Listen()
         {
             Listening = true;
             tcpListener.Start();
             while (Listening)
             {
+                Container.console.Message("Ftp Listening");
                 try
                 {
                     TcpClient client = tcpListener.AcceptTcpClient();
@@ -105,9 +102,9 @@ namespace CosmosTest.App.FtpServer
                     Log("Client : New connection from " + endpoint.Address.ToString());
                     ReceiveNewClient(client);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
-                    ConsoleManager.Error(ex);
+                    Container.console.Error(ex);
                 }
                 finally
                 {
@@ -158,7 +155,7 @@ namespace CosmosTest.App.FtpServer
             }
             catch (Exception ex)
             {
-                ConsoleManager.Error(ex);
+                Container.console.Error(ex);
             }
         }
 
@@ -170,12 +167,12 @@ namespace CosmosTest.App.FtpServer
         {
             if (Debug)
             {
-                ConsoleManager.Log(str);
+                Container.console.Message(str);
             }
         }
 
         /// <summary>
-        /// Stop FTP server.
+        /// Stop FTP ftpServer.
         /// </summary>
         public void Close()
         {

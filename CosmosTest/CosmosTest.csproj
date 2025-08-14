@@ -13,13 +13,14 @@
         <StartCosmosGDB>False</StartCosmosGDB>
         <VisualStudioDebugPort>Pipe: Cosmos\Serial</VisualStudioDebugPort>
         <CosmosDebugPort>Serial: COM1</CosmosDebugPort>
-        <Launch>ISO</Launch>
+        <Launch>VMware</Launch>
         <Profile>VMware</Profile>
         <Description>Use VMware Player or Workstation to deploy and debug.</Description>
         <PxeInterface>192.168.0.8</PxeInterface>
-        <RemoveBootDebugOutput>True</RemoveBootDebugOutput>
+        <RemoveBootDebugOutput>False</RemoveBootDebugOutput>
         <DebugEnabled>False</DebugEnabled>
         <BinFormat>Elf</BinFormat>
+        <CompressionType>None</CompressionType>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -38,10 +39,13 @@
 
     <ItemGroup>
         <PackageReference Include="Cosmos.Build" Version="0-*" NoWarn="NU1604" />
-        <PackageReference Include="Cosmos.Coroutines" Version="1.0.1" />
+        <PackageReference Include="Cosmos.Common" Version="0.1.0-localbuild20250611053954" />
+        <PackageReference Include="Cosmos.Core" Version="0.1.0-localbuild20250611053954" />
         <PackageReference Include="Cosmos.Debug.Kernel" Version="0-*" NoWarn="NU1604" />
+        <PackageReference Include="Cosmos.HAL2" Version="0.1.0-localbuild20250611053954" />
         <PackageReference Include="Cosmos.System2" Version="0-*" NoWarn="NU1604" />
         <PackageReference Include="Cosmos.Plugs" Version="0-*" NoWarn="NU1604" />
+        <PackageReference Include="IL2CPU.API" Version="0.1.0-localbuild20250611053954" />
     </ItemGroup>
 
 </Project>
