@@ -25,12 +25,12 @@ namespace CosmosTest.App.Model
         public override string ToString()
         {
             return "{"
-                        +"\n\tMode:"+(int)Mode+","
-                        +"\n\tip:[" + ip[0] + "," + ip[1] + "," + ip[2] + "," + ip[3] + "],"
-                        +"\n\tsubnet:[" + subnet[0] + "," + subnet[1] + "," + subnet[2] + "," + subnet[3] + "],"
-                        +"\n\tgateway:[" + gateway[0] + "," + gateway[1] + "," + gateway[2] + "," + gateway[3] + "],"
-                        +"\n\tftp:" + (ftp?"true":"false") + ","
-                        +"\n\thttp:" + (http?"true":"false")
+                        + "\n\t\"Mode\":" + (int)Mode+","
+                        + "\n\t\"ip\":[" + ip[0] + "," + ip[1] + "," + ip[2] + "," + ip[3] + "],"
+                        + "\n\t\"subnet\":[" + subnet[0] + "," + subnet[1] + "," + subnet[2] + "," + subnet[3] + "],"
+                        + "\n\t\"gateway\":[" + gateway[0] + "," + gateway[1] + "," + gateway[2] + "," + gateway[3] + "],"
+                        + "\n\t\"ftp\":" + (ftp?"true":"false") + ","
+                        + "\n\t\"http\":" + (http?"true":"false")
                 + "\n}";
         }
         private bool DeserializeBoolean(string json)

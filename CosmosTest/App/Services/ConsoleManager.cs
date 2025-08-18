@@ -58,6 +58,10 @@ namespace CosmosTest.App.Services
         internal void Message(Message message)
         {
             messages.Add(message);
+            if (messages.Count > 20)
+            {
+                messages.RemoveRange(0, messages.Count - 20);
+            }
             DrawUI();
         }
         internal void Message(string text)

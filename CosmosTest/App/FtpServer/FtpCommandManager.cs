@@ -1,6 +1,5 @@
 ﻿using Cosmos.System.FileSystem;
 using Cosmos.System.FileSystem.Listing;
-using Cosmos.System.Network.Config;
 using System;
 using System.IO;
 using System.Net;
@@ -32,7 +31,7 @@ namespace CosmosTest.App.FtpServer
         /// Create new instance of the <see cref="FtpCommandManager"/> class.
         /// </summary>
         /// <param name="fs">Cosmos Virtual Filesystem.</param>
-        /// <param name="directory">Base directory used by the FTP ftpServer.</param>
+        /// <param name="directory">Base directory used by the FTP server.</param>
         internal FtpCommandManager(CosmosVFS fs, string directory)
         {
             FileSystem = fs;
@@ -47,19 +46,19 @@ namespace CosmosTest.App.FtpServer
         /// <param name="command">FTP Command.</param>
         internal void ProcessRequest(FtpClient ftpClient, FtpCommand command)
         {
-            try
+            if (command.Command == "USER")
             {
-                if (command.Command == "USER")
+                ProcessUser(ftpClient, command);
+            }
+            else if (command.Command == "PASS")
+            {
+                ProcessPass(ftpClient, command);
+            }
+            else
+            {
+                if (ftpClient.IsConnected())
                 {
-                    ProcessUser(ftpClient, command);
-                }
-                else if (command.Command == "PASS")
-                {
-                    ProcessPass(ftpClient, command);
-                }
-                else
-                {
-                    if (ftpClient.IsConnected())
+                    try
                     {
                         switch (command.Command)
                         {
@@ -115,13 +114,12 @@ namespace CosmosTest.App.FtpServer
                                 ftpClient.SendReply(500, "Unknown command.");
                                 break;
                         }
+                    }catch(Exception ex)
+                    {
+                        ftpClient.SendReply(550, "Requested action not taken.");
+                        Container.console.Error(ex);
                     }
                 }
-            }
-            catch (Exception e)
-            {
-                ftpClient.SendReply(550, "Requested action not taken.");
-                Container.console.Error(e);
             }
         }
 
@@ -230,8 +228,9 @@ namespace CosmosTest.App.FtpServer
                     ftpClient.SendReply(550, "Requested action not taken.");
                 }
             }
-            catch
+            catch(Exception ex)
             {
+                Container.console.Error(ex);
                 ftpClient.SendReply(550, "Requested action not taken.");
             }
         }
@@ -264,13 +263,15 @@ namespace CosmosTest.App.FtpServer
         /// <param name="command">FTP Command.</param>
         internal void ProcessPasv(FtpClient ftpClient, FtpCommand command)
         {
-            ushort port = 21;
+            ushort port = Cosmos.System.Network.IPv4.TCP.Tcp.GetDynamicPort();
             var address = ftpClient.Control.Client.LocalEndPoint.ToString();
-            var myaddress = new IPAddress(NetworkConfiguration.CurrentAddress.ToByteArray());
-            ftpClient.DataListener = new TcpListener(myaddress, port);
+
+            ftpClient.DataListener = new TcpListener(IPAddress.Any, port);
             ftpClient.DataListener.Start();
-            ftpClient.Mode = TransferMode.PASV;
+
             ftpClient.SendReply(200, $"Entering Passive Mode ({address},{port / 256},{port % 256})");
+
+            ftpClient.Mode = TransferMode.PASV;
         }
 
         /// <summary>
@@ -285,11 +286,15 @@ namespace CosmosTest.App.FtpServer
                 (byte)int.Parse(splitted[0]), (byte)int.Parse(splitted[1]), (byte)int.Parse(splitted[2]), (byte)int.Parse(splitted[3])
             };
             IPAddress address = new IPAddress(array);
+
             ftpClient.Data = new TcpClient();
+
             ftpClient.Address = address;
             ftpClient.Port = int.Parse(splitted[4]) * 256 + int.Parse(splitted[5]);
-            ftpClient.Mode = TransferMode.ACTV;
+
             ftpClient.SendReply(200, "Entering Active Mode.");
+
+            ftpClient.Mode = TransferMode.ACTV;
         }
 
         /// <summary>
@@ -299,24 +304,42 @@ namespace CosmosTest.App.FtpServer
         /// <param name="command">FTP Command.</param>
         internal void ProcessList(FtpClient ftpClient, FtpCommand command)
         {
-                switch (ftpClient.Mode)
+            try
+            {
+                if (ftpClient.Mode == TransferMode.NONE)
                 {
-                    case TransferMode.ACTV:
-                        ftpClient.Data.Connect(ftpClient.Address, ftpClient.Port);
-                        ftpClient.DataStream = ftpClient.Data.GetStream();
-                        DoList(ftpClient, command);
-                        break;
-                    case TransferMode.PASV:
-                        ftpClient.Data = ftpClient.DataListener.AcceptTcpClient();
-                        ftpClient.DataStream = ftpClient.Data.GetStream();
-                        DoList(ftpClient, command);
-                        ftpClient.DataListener.Stop();
-                        break;
-                    default:
-                        ftpClient.SendReply(425, "Can't open data connection.");
-                        break;
+                    ftpClient.SendReply(425, "Can't open data connection.");
                 }
+                else if (ftpClient.Mode == TransferMode.ACTV)
+                {
+                    ftpClient.Data.Connect(ftpClient.Address, ftpClient.Port);
+                    ftpClient.DataStream = ftpClient.Data.GetStream();
+
+                    DoList(ftpClient, command);
+
+                    return;
+                }
+                else if (ftpClient.Mode == TransferMode.PASV)
+                {
+                    ftpClient.Data = ftpClient.DataListener.AcceptTcpClient();
+                    ftpClient.DataStream = ftpClient.Data.GetStream();
+
+                    DoList(ftpClient, command);
+
+                    ftpClient.DataListener.Stop();
+
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Container.console.Error(ex);
+                ftpClient.SendReply(425, "Can't open data connection.");
+            }
+
+            ftpClient.SendReply(425, "Can't open data connection.");
         }
+
         /// <summary>
         /// Make a file/directory listing and send it to FTP data connection.
         /// </summary>
@@ -325,6 +348,7 @@ namespace CosmosTest.App.FtpServer
         private void DoList(FtpClient ftpClient, FtpCommand command)
         {
             var directory_list = FileSystem.GetDirectoryListing(CurrentDirectory + "\\" + command.Content);
+
             var sb = new StringBuilder();
             foreach (var directoryEntry in directory_list)
             {
@@ -341,8 +365,11 @@ namespace CosmosTest.App.FtpServer
                 sb.Append(" Jan 1 09:00 ");
                 sb.AppendLine(directoryEntry.mName);
             }
+
             ftpClient.DataStream.Write(Encoding.ASCII.GetBytes(sb.ToString()));
+
             ftpClient.Data.Close();
+
             ftpClient.SendReply(226, "Transfer complete.");
         }
 
@@ -370,7 +397,7 @@ namespace CosmosTest.App.FtpServer
                     ftpClient.SendReply(550, "Requested action not taken.");
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Container.console.Error(ex);
                 ftpClient.SendReply(550, "Requested action not taken.");
@@ -401,8 +428,9 @@ namespace CosmosTest.App.FtpServer
                     ftpClient.SendReply(550, "Requested action not taken.");
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Container.console.Error(ex);
                 ftpClient.SendReply(550, "Requested action not taken.");
             }
         }
@@ -420,11 +448,18 @@ namespace CosmosTest.App.FtpServer
                 return;
             }
             try
-            { 
-                    FileSystem.CreateDirectory(CurrentDirectory + "\\" + command.Content);
+            {
+                if (Directory.Exists(CurrentDirectory + "\\" + command.Content))
+                {
+                    ftpClient.SendReply(550, "Requested action not taken.");
+                }
+                else
+                {
+                    Directory.CreateDirectory(CurrentDirectory + "\\" + command.Content);
                     ftpClient.SendReply(200, "Command okay.");
+                }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Container.console.Error(ex);
                 ftpClient.SendReply(550, "Requested action not taken.");
@@ -441,6 +476,7 @@ namespace CosmosTest.App.FtpServer
             try
             {
                 var root = FileSystem.GetDirectory(CurrentDirectory);
+
                 if (CurrentDirectory.Length > 3)
                 {
                     CurrentDirectory = root.mParent.mFullPath;
@@ -451,8 +487,9 @@ namespace CosmosTest.App.FtpServer
                     ftpClient.SendReply(550, "Requested action not taken.");
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Container.console.Error(ex);
                 ftpClient.SendReply(550, "Requested action not taken.");
             }
         }
@@ -471,30 +508,40 @@ namespace CosmosTest.App.FtpServer
             }
             try
             {
-                switch (ftpClient.Mode)
+                if (ftpClient.Mode == TransferMode.NONE)
                 {
-                    case TransferMode.ACTV:
-                        if(!ftpClient.Connected)
-                            ftpClient.Data.Connect(ftpClient.Address, ftpClient.Port);
-                        ftpClient.DataStream = ftpClient.Data.GetStream();
-                        DoStor(ftpClient, command);
-                        break;
-                    case TransferMode.PASV:
-                        ftpClient.Data = ftpClient.DataListener.AcceptTcpClient();
-                        ftpClient.DataStream = ftpClient.Data.GetStream();
-                        DoStor(ftpClient, command);
-                        ftpClient.DataListener.Stop();
-                        break;
-                    default:
-                        ftpClient.SendReply(425, "Can't open data connection.");
-                        break;
+                    ftpClient.SendReply(425, "Can't open data connection.");
+                }
+                else if (ftpClient.Mode == TransferMode.ACTV)
+                {
+                    ftpClient.Data.Connect(ftpClient.Address, ftpClient.Port);
+                    ftpClient.DataStream = ftpClient.Data.GetStream();
+
+                    DoStor(ftpClient, command);
+
+                    return;
+                }
+                else if (ftpClient.Mode == TransferMode.PASV)
+                {
+                    ftpClient.Data = ftpClient.DataListener.AcceptTcpClient();
+                    ftpClient.DataStream = ftpClient.Data.GetStream();
+
+                    DoStor(ftpClient, command);
+
+                    ftpClient.DataListener.Stop();
+
+                    return;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Container.console.Error(ex);
                 ftpClient.SendReply(425, "Can't open data connection.");
             }
+
+            ftpClient.SendReply(425, "Can't open data connection.");
         }
+
         /// <summary>
         /// Receive file from FTP data connection and write it to filesystem.
         /// </summary>
@@ -505,30 +552,25 @@ namespace CosmosTest.App.FtpServer
             try
             {
                 string filePath = Path.Combine(CurrentDirectory, command.Content);
-
                 using (FileStream fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
                 {
                     byte[] buffer = new byte[ftpClient.Data.ReceiveBufferSize];
                     int count;
-
                     while ((count = ftpClient.DataStream.Read(buffer, 0, buffer.Length)) > 0)
                     {
                         fileStream.Write(buffer, 0, count);
                     }
                 }
-            }
-            catch
-            {
-                ftpClient.SendReply(550, "Requested action not taken.");
-            }
-            finally
-            {
-                ftpClient.Data.Close();
-
                 ftpClient.SendReply(226, "Transfer complete.");
+                ftpClient.Data.Close();
+            }
+            catch (Exception ex)
+            {
+                Container.console.Error(ex);
+                ftpClient.SendReply(550, "Requested action not taken.");
+                ftpClient.Data.Close();
             }
         }
-
         /// <summary>
         /// Process RETR command.
         /// </summary>
@@ -543,29 +585,38 @@ namespace CosmosTest.App.FtpServer
             }
             try
             {
-                switch (ftpClient.Mode)
+                if (ftpClient.Mode == TransferMode.NONE)
                 {
-                    case TransferMode.ACTV:
-                        if (!ftpClient.Connected)
-                            ftpClient.Data.Connect(ftpClient.Address, ftpClient.Port);
-                        ftpClient.DataStream = ftpClient.Data.GetStream();
-                        DoRetr(ftpClient, command);
-                        break;
-                    case TransferMode.PASV:
-                        ftpClient.Data = ftpClient.DataListener.AcceptTcpClient();
-                        ftpClient.DataStream = ftpClient.Data.GetStream();
-                        DoRetr(ftpClient, command);
-                        ftpClient.DataListener.Stop();
-                        break;
-                    default:
-                        ftpClient.SendReply(425, "Can't open data connection.");
-                        break;
+                    ftpClient.SendReply(425, "Can't open data connection.");
+                }
+                else if (ftpClient.Mode == TransferMode.ACTV)
+                {
+                    ftpClient.Data.Connect(ftpClient.Address, ftpClient.Port);
+                    ftpClient.DataStream = ftpClient.Data.GetStream();
+
+                    DoRetr(ftpClient, command);
+
+                    return;
+                }
+                else if (ftpClient.Mode == TransferMode.PASV)
+                {
+                    ftpClient.Data = ftpClient.DataListener.AcceptTcpClient();
+                    ftpClient.DataStream = ftpClient.Data.GetStream();
+
+                    DoRetr(ftpClient, command);
+
+                    ftpClient.DataListener.Stop();
+
+                    return;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Container.console.Error(ex);
                 ftpClient.SendReply(425, "Can't open data connection.");
             }
+
+            ftpClient.SendReply(425, "Can't open data connection.");
         }
 
         /// <summary>
@@ -577,18 +628,15 @@ namespace CosmosTest.App.FtpServer
             {
                 string filePath = Path.Combine(CurrentDirectory, command.Content);
                 byte[] data = File.ReadAllBytes(filePath);
-
                 ftpClient.DataStream.Write(data, 0, data.Length);
-            }
-            catch
-            {
-                ftpClient.SendReply(550, "Requested action not taken.");
-            }
-            finally
-            {
-                ftpClient.Data.Close();
-
                 ftpClient.SendReply(226, "Transfer complete.");
+                ftpClient.Data.Close();
+            }
+            catch (Exception ex)
+            {
+                Container.console.Error(ex);
+                ftpClient.Data.Close();
+                ftpClient.SendReply(550, "Requested action not taken.");
             }
         }
 
