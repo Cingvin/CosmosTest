@@ -28,6 +28,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <Compile Remove="Program.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
       <None Remove="Pages\index.html" />
     </ItemGroup>
 
@@ -35,6 +39,10 @@
       <EmbeddedResource Include="Pages\index.html">
         <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       </EmbeddedResource>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="Program.cs" />
     </ItemGroup>
 
     <ItemGroup>
